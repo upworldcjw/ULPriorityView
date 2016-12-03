@@ -1,0 +1,16 @@
+PODS:
+  - ULPriorityView (0.0.1)
+
+DEPENDENCIES:
+  - ULPriorityView (from `..`)
+
+EXTERNAL SOURCES:
+  ULPriorityView:
+    :path: ..
+
+SPEC CHECKSUMS:
+  ULPriorityView: c97d0eaabb2de74fa86786f885e2d37c9c8edddc
+
+PODFILE CHECKSUM: 5be0227f05e6253d2062b0dd1afb374656ca61da
+
+COCOAPODS: 1.1.0.rc.3
