@@ -10,8 +10,7 @@
 
 @interface ULPriorityTest : NSObject
 
-+ (void)testSameLevel;
++ (void)test;
 
-+ (void)testDiffentLevel;
 
 @end
