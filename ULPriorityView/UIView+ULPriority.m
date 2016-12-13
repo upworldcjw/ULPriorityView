@@ -8,11 +8,6 @@
 
 #import "UIView+ULPriority.h"
 #import <objc/runtime.h>
-@interface UIView (ULPriority_inner)
-
-@property (nonatomic, assign) NSInteger priorityLevel; 
-
-@end
 
 @implementation UIView (ULPriority)
 

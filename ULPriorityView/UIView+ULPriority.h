@@ -21,9 +21,7 @@ typedef NS_ENUM(NSInteger,kPriorityLevel){//优先级越大越靠近上
 
 
 @interface UIView (ULPriority)
-//先调用priorityLevel，然后在放到父视图上
+//先调用priorityLevel，然后在放到父视图上([superview addSubview:self])
 @property (nonatomic, assign) NSInteger priorityLevel;
-
-
 
 @end
