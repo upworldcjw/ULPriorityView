@@ -9,11 +9,12 @@
 #import "ULPriorityView.h"
 #import "UIView+ULPriority.h"
 
+#define  kNSAssertExistSubView(subView) {NSAssert((subView).superview != self, @"not invoke addSubview: or not subview of %p",self)};
+
 @interface ULPriorityView()
 
 //dic[priorityLevel] = subviews.根据等级缓存对应视图，加快计算效率
 @property (nonatomic, strong) NSMutableDictionary *cacheLevelViews;
-
 
 @end
 
@@ -27,6 +28,7 @@
     return self;
 }
 
+#pragma mark Utility
 //由于subviews的view的顺序和cacheLevelViews中priorityLevel从小到大的subviews中view顺序一致。
 ///用于验证算法的正确性
 - (void)check{
@@ -47,6 +49,94 @@
 #endif
 }
 
+//从cache删除元素
+- (void)cacheRemoveView:(UIView *)subView{
+    kNSAssertExistSubView(subView)
+    NSInteger currentLevel = subView.priorityLevel;
+    NSMutableArray *sameLeves = self.cacheLevelViews[@(currentLevel)];
+    [sameLeves removeObject:subView];
+    if ([sameLeves count] == 0) {//subView是这个级别中的最后一个
+        self.cacheLevelViews[@(currentLevel)] = nil;
+    }
+}
+
+//添加subView到cache
+- (void)cacheAddSubView:(UIView *)subView topMost:(BOOL)topMost{
+    kNSAssertExistSubView(subView)
+    NSInteger currentLevel = subView.priorityLevel;
+    NSMutableArray *sameLeves = self.cacheLevelViews[@(currentLevel)];
+    if (sameLeves == nil) {
+        sameLeves = [NSMutableArray array];
+        self.cacheLevelViews[@(currentLevel)] = sameLeves;
+    }
+    if (topMost) {
+        [sameLeves addObject:subView];
+    }else{
+        [sameLeves insertObject:subView atIndex:0];
+    }
+}
+
+//检查subView，是否是自己的subview
+- (BOOL)checkExistSubView:(UIView *)subView{
+    kNSAssertExistSubView(subView)
+    if (subView.superview != self) {
+        return NO;
+    }
+    return YES;
+}
+
+///根据priorityLevel从小到大排序
+- (NSArray *)sortedCacheLevels{
+    NSArray<NSNumber *> *levels = self.cacheLevelViews.allKeys;
+    NSArray *sortedLeves = [levels sortedArrayUsingComparator:^NSComparisonResult(NSNumber *obj1, NSNumber *obj2) {
+        return [obj1 integerValue] > [obj2 integerValue];
+    }];
+    return sortedLeves;
+}
+
+///比priorityLevel，优先级小的且最接近的level
+- (NSInteger)belowPriorityLevel:(NSInteger)priorityLevel{
+    NSArray *sortedLeves = [self sortedCacheLevels];
+    for (NSNumber *number in sortedLeves.reverseObjectEnumerator) {//从大到小遍历
+        if (number.integerValue < priorityLevel) {
+            return number.integerValue;
+        }
+    }
+    return NSNotFound;
+}
+
+///比priorityLevel优先级大且最接近的level
+- (NSInteger)abovePriorityLevel:(NSInteger)priorityLevel{
+    return [self abovePriorityLevel:priorityLevel viewIndex:NULL];
+}
+
+///所有view.priorityLevel <= priorityLevel的视图数量
+- (NSInteger)viewCountForPriorityLevelLessThenOrEqualTo:(NSInteger)priorityLevel{
+    NSInteger allCount = 0;
+    [self abovePriorityLevel:priorityLevel viewIndex:&allCount];
+    return allCount;
+}
+
+///比priorityLevel优先级大且最接近的level
+- (NSInteger)abovePriorityLevel:(NSInteger)priorityLevel viewIndex:(NSInteger *)viewIndex{
+    NSInteger result = NSNotFound;
+    NSArray *sortedLeves = [self sortedCacheLevels];
+    NSInteger count = 0;
+    for (NSNumber *number in sortedLeves) {//从小到大遍历
+        if (number.integerValue > priorityLevel) {
+            result = number.integerValue;
+            break;
+        }
+        NSArray *cacheArr = self.cacheLevelViews[@(number.integerValue)];
+        count += [cacheArr count];
+    }
+    if (viewIndex != NULL) {
+        *viewIndex = count;
+    }
+    return result ;
+}
+
+#pragma mark - Change subview
 ///更新cacheLevels
 - (void)willRemoveSubview:(UIView *)subview{
     [super willRemoveSubview:subview];
@@ -63,6 +153,7 @@
 //    });
 }
 
+
 /*
  *front = YES,表示调用bringSubviewToFront
  *front = NO,表示调用sendSubviewToBack
@@ -71,7 +162,7 @@
 - (void)bringSubView:(UIView *)view
              toFront:(BOOL)front{
     //对于没用调用addSubview，但是调用bringSubviewToFront，sendSubviewToBack健壮性保护
-    if (![self.subviews containsObject:view]) {
+    if (![self checkExistSubView:view]) {
         return;
     }
     NSInteger currentLevel = view.priorityLevel;
@@ -114,37 +205,6 @@
     [self check];
 }
 
-///根据priorityLevel从小到大排序
-- (NSArray *)sortedCacheLevels{
-    NSArray<NSNumber *> *levels = self.cacheLevelViews.allKeys;
-    NSArray *sortedLeves = [levels sortedArrayUsingComparator:^NSComparisonResult(NSNumber *obj1, NSNumber *obj2) {
-        return [obj1 integerValue] > [obj2 integerValue];
-    }];
-    return sortedLeves;
-}
-
-///比priorityLevel，优先级小的且最接近的level
-- (NSInteger)belowPriorityLevel:(NSInteger)priorityLevel{
-    NSArray *sortedLeves = [self sortedCacheLevels];
-    for (NSNumber *number in sortedLeves.reverseObjectEnumerator) {//从大到小遍历
-        if (number.integerValue < priorityLevel) {
-            return number.integerValue;
-        }
-    }
-    return NSNotFound;
-}
-
-///比priorityLevel优先级大且最接近的level
-- (NSInteger)abovePriorityLevel:(NSInteger)priorityLevel{
-    NSArray *sortedLeves = [self sortedCacheLevels];
-    for (NSNumber *number in sortedLeves) {//从小到大遍历
-        if (number.integerValue > priorityLevel) {
-            return number.integerValue;
-        }
-    }
-    return NSNotFound;
-}
-
 ///准守尽量靠上原则，后addSubview的视图在所有同一个优先级view的最上面
 - (void)addSubview:(UIView *)view{
     //view 已经在视图上，再次加入
@@ -181,7 +241,6 @@
     }
     [self check];
 }
-
 
 /*
  *需要考虑view和siblingSubview的priorityLevel是否相等及view是否已经添加到了self上
@@ -262,7 +321,6 @@
     NSAssert([self.subviews containsObject:siblingSubview], @"error");
     [self inner_insertSubview:view aboveSubview:siblingSubview];
 }
-
 
 //view和siblingSubview，在准守等级的情况下距离最小
 //这个方法的时候考虑view不在self上
@@ -346,11 +404,110 @@
     if(index1View.priorityLevel != index2View.priorityLevel){
         return;
     }
+    
     //update view
     [super exchangeSubviewAtIndex:index1 withSubviewAtIndex:index2];
     //update cache
     NSMutableArray *sameLeves = self.cacheLevelViews[@(index1View.priorityLevel)];
     [sameLeves exchangeObjectAtIndex:[sameLeves indexOfObject:index1View] withObjectAtIndex:[sameLeves indexOfObject:index2View]];
+    [self check];
+}
+
+
+- (NSInteger)properIndexForPriorityLevel:(NSInteger)priorityLevel
+                                 topMost:(BOOL)topMost{
+    
+}
+
+//改变视图
+/*如果subview还不在ULPriorityView请先调用addSubview
+ *
+ *这个方法是提供给subView添加到ULPriorityView实例上后，由于需求又需要修改优先级。
+ *topMost 如果是Yes,则subView在priorityLevel的最上面，否则在最下面
+ */
+- (void)changeSubView:(UIView *)subView
+        priorityLevel:(NSInteger)priorityLevel
+              topMost:(BOOL)topMost{
+    if (![self checkExistSubView:subView]) {
+        return;
+    }
+    
+    NSInteger beforeLevel = subView.priorityLevel;
+    if (beforeLevel == priorityLevel) {//同一个优先级，放到最前或者最后
+        if (topMost) {
+            [self bringSubviewToFront:subView];
+        }else{
+            [self sendSubviewToBack:subView];
+        }
+    }else{//不同优先级，先删除缓存再添加
+        //this will triger willRemoveSubview && didMoveToSuperview.sometime we donot want。
+//        {
+//            [self removeFromSuperview];
+//            subView.priorityLevel = priorityLevel;
+//            [self addSubview:subView];//默认放在最上方
+//            if (!topMost) {//
+//                [self sendSubviewToBack:subView];
+//            }
+//        }
+        //所以我们用下面比较高效的方法.先remove cache
+        //删除cache
+        [self cacheRemoveView:subView];
+        //修改优先级
+        subView.priorityLevel = priorityLevel;
+        
+        NSInteger allViewCountLessThenOrEqualTo = [self viewCountForPriorityLevelLessThenOrEqualTo:priorityLevel];
+        if (topMost) {
+                [super insertSubview:subView atIndex:allViewCountLessThenOrEqualTo];
+        }else{//priorityLevel最下面一个
+            NSInteger allViewCountLessThen = allViewCountLessThenOrEqualTo - [self.cacheLevelViews[@(priorityLevel)] count];
+            [super insertSubview:subView atIndex:allViewCountLessThen];
+        }
+        //添加到cache
+        [self cacheAddSubView:subView topMost:topMost];
+    }
+    [self check];
+}
+
+
+/*
+ *subView 和 siblingView，已经被添加到ULPriorityView实例上。
+ * *changed = NO 表示subView 和 siblingView的优先级相同则同层级交换
+ * *changed = YES 表示subView 和 siblingView跨优先级交互，并且相互交换priorityLevel值
+ */
+- (void)exchangeSubView:(UIView *)subView
+        withSiblingView:(UIView *)siblingView
+       priorityExchange:(BOOL *)changed{
+    NSAssert(subView.superview == self && siblingView.superview == self, @"not invoke addSubview");
+    NSAssert(subView.superview == siblingView.superview, @"not siblingView");
+    
+    NSInteger subViewLevel = subView.priorityLevel;
+    NSInteger sibilingViewLevel = siblingView.priorityLevel;
+
+    //update view
+    NSInteger subViewIndex = [self.subviews indexOfObject:subView];
+    NSInteger siblingViewIndex = [self.subviews indexOfObject:siblingView];
+    [super exchangeSubviewAtIndex:subViewIndex withSubviewAtIndex:siblingViewIndex];
+    
+    if (subViewLevel == sibilingViewLevel) {//同层交换
+        //update cache
+        NSMutableArray *sameLeves = self.cacheLevelViews[@(subViewLevel)];
+        [sameLeves exchangeObjectAtIndex:[sameLeves indexOfObject:subView] withObjectAtIndex:[sameLeves indexOfObject:siblingView]];
+        //not changed priorityLevel
+        if (changed != NULL) {
+            *changed = NO;
+        }
+    }else{
+        NSMutableArray *subViewLevelCaches = self.cacheLevelViews[@(subViewLevel)];
+        NSMutableArray *sibilingViewLevelCaches = self.cacheLevelViews[@(sibilingViewLevel)];
+        [subViewLevelCaches replaceObjectAtIndex:[subViewLevelCaches indexOfObject:subView] withObject:siblingView];
+        [sibilingViewLevelCaches replaceObjectAtIndex:[sibilingViewLevelCaches indexOfObject:siblingView] withObject:subView];
+        //exchange priorityLevel
+        subView.priorityLevel = sibilingViewLevel;
+        siblingView.priorityLevel = subViewLevel;
+        if (*changed != NULL) {
+            *changed = YES;
+        }
+    }
     [self check];
 }
 
@@ -379,21 +536,4 @@
     //    [self check];
 }
 
-
-//- (UIView * (^)(UIView *subView))addSubview{
-//    return ^(UIView *subView){
-//        [self addSubview:subView];
-//        return subView;
-//    };
-//}
-//
-//- (UIView *(^)(kPriorityLevel level))level{
-//    return ^(kPriorityLevel level){
-//        self.priorityLevel = level;
-//        if (self.superview) {
-//            [self.superview pp_addSubview:self];
-//        }
-//        return self;
-//    };
-//}
 @end
