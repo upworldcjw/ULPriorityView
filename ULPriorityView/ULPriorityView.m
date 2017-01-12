@@ -9,7 +9,7 @@
 #import "ULPriorityView.h"
 #import "UIView+ULPriority.h"
 
-#define  kNSAssertExistSubView(subView) {NSAssert((subView).superview != self, @"not invoke addSubview: or not subview of %p",self)};
+#define  kNSAssertExistSubView(subView) do{NSAssert((subView).superview != self, @"not invoke addSubview: or not subview of %p",self);}while(NO);
 
 @interface ULPriorityView()
 
