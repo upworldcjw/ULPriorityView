@@ -51,7 +51,7 @@
 
 //从cache删除元素
 - (void)cacheRemoveView:(UIView *)subView{
-    kNSAssertExistSubView(subView)
+    kNSAssertExistSubView(subView);
     NSInteger currentLevel = subView.priorityLevel;
     NSMutableArray *sameLeves = self.cacheLevelViews[@(currentLevel)];
     [sameLeves removeObject:subView];
@@ -62,7 +62,7 @@
 
 //添加subView到cache
 - (void)cacheAddSubView:(UIView *)subView topMost:(BOOL)topMost{
-    kNSAssertExistSubView(subView)
+    kNSAssertExistSubView(subView);
     NSInteger currentLevel = subView.priorityLevel;
     NSMutableArray *sameLeves = self.cacheLevelViews[@(currentLevel)];
     if (sameLeves == nil) {
@@ -414,10 +414,10 @@
 }
 
 
-- (NSInteger)properIndexForPriorityLevel:(NSInteger)priorityLevel
-                                 topMost:(BOOL)topMost{
-    
-}
+//- (NSInteger)properIndexForPriorityLevel:(NSInteger)priorityLevel
+//                                 topMost:(BOOL)topMost{
+//    
+//}
 
 //改变视图
 /*如果subview还不在ULPriorityView请先调用addSubview
@@ -534,6 +534,44 @@
     //        [self addSubview:view];
     //    }
     //    [self check];
+}
+
+@end
+
+@implementation ULPriorityView (Subviews)
+
+//返回某个优先级的views
+- (NSArray *)subViewsForPriorityLevel:(NSInteger)priorityLevel{
+    return [self.cacheLevelViews[@(priorityLevel)] copy];
+}
+
+
+- (NSArray *)enumSubviewWithSortedPriorityLevelWithBlock:(BOOL (^)(NSNumber *obj,*stop))block{
+    if (block == NULL) {
+        return nil;
+    }
+    NSArray *sortedLeves = [self sortedCacheLevels];
+    NSMutableArray *allSubViews = [NSMutableArray array];
+    [sortedLeves enumerateObjectsUsingBlock:^(NSNumber *obj, NSUInteger idx, BOOL * _Nonnull stopEnum) {
+        if (block(obj,stopEnum)) {
+            [allSubViews addObject:self.cacheLevelViews[obj]];
+        }
+    }];
+    return [allSubViews copy];
+}
+
+//返回 >=priorityLevel的views
+- (NSArray *)subViewsForPriorityLevelEqualOrGreaterThen:(NSInteger)priorityLevel{
+    return [self enumSubviewWithSortedPriorityLevelWithBlock:^BOOL(NSNumber *obj, int *stop) {
+        return obj.integerValue >= priorityLevel;
+    }];
+}
+
+//返回 <=priorityLevel的views
+- (NSArray *)subViewsForPriorityLevelEqualOrLessThen:(NSInteger)priorityLevel{
+    return [self enumSubviewWithSortedPriorityLevelWithBlock:^BOOL(NSNumber *obj, int *stop) {
+        return obj.integerValue <= priorityLevel;
+    }];
 }
 
 @end

@@ -41,3 +41,19 @@ typedef NS_ENUM(NSInteger,ULSiblingPolicy){
        priorityExchange:(BOOL *)changed;
 
 @end
+
+
+@interface ULPriorityView (Subviews)
+
+//返回某个优先级的views
+- (NSArray *)subViewsForPriorityLevel:(NSInteger)priorityLevel;
+
+//返回 >=priorityLevel的views
+- (NSArray *)subViewsForPriorityLevelEqualOrGreaterThen:(NSInteger)priorityLevel;
+
+//返回 <=priorityLevel的views
+- (NSArray *)subViewsForPriorityLevelEqualOrLessThen:(NSInteger)priorityLevel;
+
+@end
+
+
